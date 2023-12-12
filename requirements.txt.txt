@@ -1,0 +1,15 @@
+rasbperry pi 3 installs
+
+sudo apt-get install mosquitto mosquitto-clients 
+sudo pip3 install paho-mqtt
+git clone https://github.com/jczic/MicroWebSrv.git  i am not sure if i need this or not
+pip3 install esptool iam not tested this yet
+sudo apt-get install mariadb-server
+pip3 install mariadb
+
+esp32idf3 is the correct firmware to this boards
+
+
+forecast:
+pip3 install requests
+pip3 install credentials

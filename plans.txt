@@ -1,0 +1,434 @@
+first of all. devices:
+raspberry pi 3, esp32 board 2 pc and 4 dht11 sensors, raspberrypi2(laskuriapi.py and hedgehog.py and 1 dht11 sensor)
+
+we communicate with mqtt
+
+in raspberry pi we set up the server where esp32 connect and upload the sensor data
+
+links and guides:
+here is link where i get ideas : https://www.rototron.info/raspberry-pi-esp32-micropython-mqtt-dht22-tutorial/
+and this might be: https://randomnerdtutorials.com/esp32-esp8266-raspberry-pi-lamp-server/ this is writteng by php and its not good.
+
+plan0 : (ver118)
+i figure out the remote plug. if i buy the cheap ones, i can control it from remote with relays. there was remote plugs examble shelly plug
+what you can control with mqtt but they was guite expencive. i want to shut down the esp boards from main device and hedgehogs counter also.
+report: in version 118 there is gpio control to controllercard what i made. there is relays and transistors and diodes and resistors.
+they control the remote plugs remote control. this version also shut down all devices when the shutdown button is pressed.
+
+
+plan1: (ver100)
+i should make devices communicate to broker
+
+report1: i have to modified this guides code. its not working with to sensors. i have to make different if clause and two different topics that my broker
+would reconize the client data. now it works with topic and topic1. now the working topics are topic, topic1, topic2, topic3. 
+i tested and both esp32 data is showing in broker raspberry pi 3 and this is a good thing.but i forget the client id that is the same both esp.s
+and that wouldnt work. i repair it and now a i can listen both devices together.
+
+report1: i use on raspberry pi command mosquitto_sub -d -t "and here the topics name "
+
+report1: i run many problems. i cannot take all measuring values to same message function. and now i tested to make each message own function but it still showing 
+only one devices measuring values.. living room esp32 didnt show any values but the fault is in the code. if you comment out kitchen device function call 
+the program shows living rooms esp measurin values.
+
+bug1: on version 113 weattherstation.py. messages went wrong, sometimes the main program copys different messages values to another. 
+this command seems to work : client.message_callback_add('temp_humidity', on_message), and i remove to function to function call. this change update to ver114
+but now i have to make timestamp on database function.. this timestamp is diffucult to me.. 
+report: lets test the timestamp.
+
+solved1: on measure function i call next on message function. that how this is working and showin all measuring data. (remove this if it works)
+
+report1: tkinter is working and timestamp is showing this. this how you notice is the device has dropped from wlan. now version is ver106 and this changes
+is made to weatherstation.py file and this file.
+
+plan2: (ver107)
+ in database i create database .py that my programs looks clear. but how i make time rule when we push data to database.
+i have to plan should i make tables more or can i do this with one table. there would be data t,h,t1,h1,t2,h2,t3,h3,and apicount and ofcourse timestamp
+report2: i create database weatherstation and before that i install mariadb server to raspberrypi. 
+startup mariadb command sudo systemclt mariadb start and sudo systemctl mariadb enable, and status is also what you want to see.
+i have lots of problems about mysql syntax but now mariadb is working well and sensordata is going to database. and remember to change ip address to localhost in mariadb settings
+
+plan3: (ver108)
+i have to make time of flag what gives you possible to save sensordata only once per hour in database.
+
+bug3: avg count shows two values and i dont know why.
+update3: fixed, and a i also remove the decimal word from screen and put the connection on function. i realize that mariadb search returns a tuple values.
+and that why you have to use binarycode search to get correct text to screen.
+bug3: database wont store negative numbers..
+
+report3: i make a counter what counts how many times esp32 was connected and when it has connected 30 times code will allow to push sensor data to database.
+i also manage to count average per week. this was difficult. cur.fetchall() was the answer. thats how you can save value from database search.
+
+plan4: i should do also shutdown program what controls the devices shutdown. and rebooting if lost connection(exept hedgehog counter)(this might be difficult)
+you have to think that where you compare the timestamps and where timestamp should come, main device or esp boards.
+
+
+plan6: (ver110)
+perhaps i should make a label what shows connection rc code just in case.
+report6: it has done and there is also if clause that it shows the error code. ver106 shows that.
+
+plan7: (ver111)
+weather api has to make different py file that you can learn how to use json based answers from api.
+report7: i make a weatherapi and it shows desvription and temp and timestamp. now i have to put values in python library and take that to main program.
+report7: it works on main program and takes a tree labels to show that information. appears on version 111
+
+plan8: should i make some timestamp when we update the weather forecast or no??
+
+plan9: (ver111)
+ hedgehogs spinning wheel topic also
+report9: i plan a code and there is different mqtt client up to different program what listens hedgehogs calculator connection.
+and i import database to that program also, that i dont know if that gonna cause problems. not tested yet! and maybe i do this differently.. not like this.
+i create program hedgehogmqtt what waits for connection from hedgehogs calculator raspberrypi. and when it sen message, this weatherstation sends back a message what 
+tells that data have uploaded to database. i try to rename clients, messages, functions differently what they are in weatherstation.py and lets test how it work.
+
+report9: test is done. it was difficult to get these work and i realize that i cannot connect from broker to client. i have ti figure out some
+another way to tell client tha heyyy your data is saved. and i find better way to make this. when you are planning programs, you cant notice everything. 
+
+report9: connection is working well. i tested from hedgehogcounter(laskuriapi.py ) to call hedgehog.py with apicount value and hedgehog takes a connection
+to weatherstation and upload the data to mariadb and close connection and set the uploaded value to zero. 
+
+report9: added to tkinter. i add the hedgehogs database values to tkinter, and it search last 24 hour from database and print it in screen, also meters are counted.
+
+plan10: (ver112)
+now i have to make a timeout function to laskuriapi.py. this how i make sure that every value is going to database. this appears on ver 112 and hedgehogs spinningwheel counter named
+laskuriapi.py on ver 106
+
+report10: orginal way of timeout didnt work. whe command is like GPIO.wait_for_edge(etc...) the whole program stops. it doesnt matter if you try to put there if clause.
+nope, it didnt work so i change the laskuriapi calculating progress to gpio add event detect command and from there i call function my_callback. and there was also problems.
+if you spin the running wheel twice, it counts 4. and when i make there if clause , then it works and counts right. also database upload iss working. but lets test what
+wierd problems linux is making.. This laskuri api in cron tab. if you dont put the sleep command then it wont work. it crash down because there is no internet when linux is loading
+a cron. but still really much of work about this project. i am a noob so this isnt easy.. 
+
+bug10: some how the thingview is not working so  i have to figure out why. is that because the slow temperature measurement.
+solved10: i put the temperature measurement in own function, now it has own function where it can measure with time,
+laskuriapi has couble bugs and they are fixed. just typos and thingspeak doesnt like messages qos = 1. it has to be 0, otherwise it wont connect.
+fixed on  laskuriapi.py on version 106
+
+plan10: (ver115)
+i have to change the wait loop littlebit. always when hedgehog is running this calculating is keeping the startin time in timeout function. and i have to modify the temperature 
+measurements becaause this sensor is avfull slow that its better to make a own function about this and also timeout function what checks about 1 per hour the temperature,
+
+report10: i also make a timeout function to calculator. not tested yet how it works. this was difficult task..
+report10: everytime when hedgehog is spinning the timestamp value goes to current time. updatet on ver 115
+
+plan11: i make tkinter label what search from hedgehogs database spinning count from last 24hours and prints it to screen.
+update11: i make a timestamp function that i dont hardcode too much. it appeats on ver107
+
+plan12: (ver117)
+ i should add some icon to weatherapi. example if weather is rainy,  there shows cloud with drop etc.
+report12: i didnt find any guide how to add tkinter label icon in text field but one i find where you put in button icon. but if this works it appears on ver117
+icons added. you have to resize the image first and then add it to button and then you can set it at se same line where is text also.
+
+
+
+plan13: (ver115) 
+maybe i put the hedgehogs room temp and hum into database and tkinter:
+report13: this was hard task. i dont know why this didnt work so well. i try to do it same way what the esp boardds do. but nope. i have to convert it to string and in broker 
+i have to tear down the message like, search for a numbers and convert it to int that you can upload it to database. this is ver 115 and coumpe bugs fixed on laskuriapi and hedgehog.py 
+files. this appears on ver106 now we test how timevalue works and is there coming to main machine only temp and hum values when timelimit full in laskuriapi.
+
+plan14: (ver118)
+now i need to fix the forecast app and fix database counting from laskuriapi. too much dewcimals on graphics.
+report14: decimals fixed. forecast app fixed.
+
+plan15: (ver119)
+ should i put the sensor data from database to thingview also? i have enough channels there so its possible. but the thingview is counting a connections so i have to 
+figure out that how i can pack every data and send it one time..
+
+bug: i change the modem and then nothing works. this was to me a good thing because always when you working like servers of brokers you need to configure
+static ip. otherwise nothing work between machines if the broker choose different ip address. this is really good to know and i learn this also. now its
+solved and the broker has static ip address. and at the same time i add stronger password to my wlan.
+
+bug: i also notice that if i connect the hedgehogs counter to weather stations shutdown relay, it takes somekind interference and shutdown ramdomly the 
+whole system. i have to test different relay, i measure with ohm gauge and there wasnt any soldering faults or shortcuts.
+report: pull down resistor was in wrong wires and input floats thats why. but lets test some days and we will se what happens.
+
+plan15: (ver120) 
+maybe i make two buttons. first one is update the forecast and second is view history. then opens a popud window where you can choose what you want to search.
+kitchen temp, and hum. living room temp, and hum, hedgehogs room temp, hum, hedgehogs runs. in that popup window you can choose the timelime
+how far you want to see information on screen. there would be also exit button. 
+
+report: graphics and buttons are made now. database search is made also. missing only the printout view.
+
+
+plan 16: (ver 121)
+added bedroom esp board measuring. not yet added to database or graphics. added also resert esp boards  button. 
+report:
+graphics add and row ordering are okay. added also mqtt listener function and messages up to graphics. 
+updated also in database, and database program. also graphics is updated
+
+
+plan17: (ver122)
+i have to separate the graphics and connections. mqtt has to have own program and perhaps communicate with pickle. seems to work out vell.
+
+report:
+starting to workout the connections.py program. testing pickle and it seems to be a fine program what helps me with this problems. 
+
+report:
+added the pickle messages to weatherstation and connections.py. 15 seconds is updating time from pickle message to graphics
+
+report: added also db code but the db table is missing
+
+report: db table added
+
+report:
+-  fix the decimal problem in database outside temperature.
+
+plan18: perhaps i put the graphics inside the loop and again root.update command and time role when programloads a pickle file from connections program. this is difficult.
+tkinter root.mainloop is too powerful and everything stops because of it. same problem what is in client looping. but first at all lets build up the test program to 
+demostrate this situition.
+
+report: tkinter root.update is behind python loop. when i tested it it works well this way. buttons too.
+report: i have taken off the top.mainloop commands from dbsearch.py. mainprogram wont update if those are there.
+
+plan19: ver123
+i should put to passwords to different program and this how i can delete this passwork file before updating to git.
+report:
+i remove the passwords to separate program. 
+
+report: added on database search bedroom temp and hum search history. also removed couple root.update() commands from weatherstation.py
+it causes freezing when machine is on long time. remember to update this to weatherstation machine.
+
+bug:
+hedgehogs calculator didnt connect to weatherstation. there was an old file in counter. i update it and now it communicates with
+weatherstation. this is a good reminder about the version controlling. its important to keep the version numbers otherwise many problems
+can find ahead because of this.
+
+plan20: ver 124:
+i made changes to database view. today my childhood friend who is professional coder gives me a feedback and i know, i amamateur but i,ll try my best to not hardcode. 
+but coding is my passion at this moment so i think i learn all the time new things and ways to do things.
+i also edit database file and function call to scroll.py i take a device value also thats how we get information what device is selected.
+scroll.py shows now what temp what timewhat hum and out what temp and hum.
+
+report:
+tested database view, couple small problems but it works now.
+
+plan21 ver 125:
+i am trying to build up the graphical view with matlibplot. its really difficult task.database search answer to list of tuples so
+you need to check how long is this list and loopout the data what you need and draw the graphics. gaphics.py is just for a testing a program.
+
+report:
+testing program is now okay. i just need to add buttons to tkinter where you can enter to graphics. 
+
+report: ver126
+
+program tested in windows pc. now its working how i excepted. there is four buttons where you can enter plot view. if you choose example hedreroom temps or berrooms
+there is only two buttons where enter to plot view. if you choose hedrerun there is only one button.
+db search list of tuples was difficult to understand how you store the data from filst of tuples. but i success and i am happy about it. quite less lines of code if graphics.py
+
+test out in rasp and report the result. 
+
+report:
+tested and its working fine
+
+bug:
+mainloop didnt work anymore if you come back from graphics.py.
+
+solved, maybe:
+i add the restart graphics button in weatherstation.py what calls mainloop and that works. i have to think is there any different way to do it
+
+bug:
+in scroll view sometimes max and min shows nothing.
+
+plan22 ver 127:
+added broaklink sp3 eu wlan smartswitch device control program.
+
+report:
+tested in weatherstation. thanks to mjg59 i use the broadlink modules to my code(didnt upload that part of code here). i shut down or power on devices with this device.
+
+bug:
+sometimes throws timeouterror from broadlink program.
+
+report:
+i also add in autostart that if the program throws error it goes to /home/pi/Desktop/new/program_name.log.
+
+plan 23 ver 128:
+fixing seacrh_database.py hardcoding ,also lots of bugs in scroll.py and database search.py
+
+report:
+i delete about 80 lines of code from search_database.py i use a python list and one function where we choose the database columnand table.
+bug:
+reason why the scroll.py wont show max or min value is because the list is shorter and it throws an list is out of index error..
+
+fixed:
+find many problems why the min or max value didnt work. i also remove buttons if you are searching max of min values
+
+bug:
+hedgehogs runnings datetime is still missing, not showing in database terminal.
+
+fixed hedgehogs bug
+
+report:
+added psu and mem gauge, i have to figure out what takes so much prosessor or memory
+
+bug:
+something in weatherstations mainloop eats lots of memory if the program is on long times:
+
+report:
+i test to mainloop that i destroy the labels and made those again. in older version it just create new one but i read about this and if you dont destroy
+label on loop, it fills memory. but now lets test and report again.
+
+bug:
+if you remove all broadlink devices from plug they might change the ip address.
+
+bug:
+when you seach a database from graphical view there is gpio pin event listener what stops listening the gpio pin. i test to add a function what calls
+event listener again. if the event listener is somehow on it throws an error and stops the weatherstation.py in mainloop there is a functioncall to this gpio pin
+event listener not tested yet
+
+report:
+next test is i have to remove and make again gpio event listener to test if shutdown button works after search graphics.
+https://www.programcreek.com/python/example/98872/RPi.GPIO.remove_event_detect 
+this fixed and report on version 129
+
+plan to fix it on version 129:
+broadlink returns a ready command so i have to search from list what is the current device name and then change that list to string and then with re 
+search the ip address and save it to value and use that to connect to devices.
+
+report:
+test successfull. now it doesnt matter if wlan plug changes the ip address.
+
+report:
+GPIO event listener reset added. if program gives a runtime error when we restart the graphics after searching the matlibplot there is try exept clause
+where we remove the event listener and clear the gpio pin and then set it up again.
+
+plan ver 130
+I was planning to graphical view that whn user choice a device what database history he or she want to search there is also a radio button where
+you can choose what month you want to check. perhaps a veek and also year. i want to make this whit scrolldown options or radio button because
+there is always a risk if datetime is typing wrong.
+
+maybe: https://stackoverflow.com/questions/45441885/how-can-i-create-a-dropdown-menu-from-a-list-in-tkinter
+
+but now i have to start planning how to make db search code. can i use lines what are in search_database.py
+
+should i use calendar: https://www.geeksforgeeks.org/create-a-date-picker-calendar-tkinter/
+if user choose start day and end day?
+
+Bug:
+microcontrollers wont send negative type numbers at all. today i put the mircocontroller to freeser and it wont show any minus degrees. perhas this bytearray
+is bad way to send data. I have to repair it and use json instead bytearray. and also i choose wrong sensors to out. dht11 is only 0-50 degrees. dht22 is about -45 between 50 
+plus degrees. Why i didnt check this when i build this system...
+
+ver 130:
+updated livingroom and kitchen outdoor sensor to dht22 and fix esp32 mqtt message to json format, not bytearray. at the same time deleted from connections
+.py 2pc messages function. old system sends 5 messages, and new system only 3. (kitchen, bedroom and living room eps boards).
+
+version 129 bug fixed, grapchs show now minus temperatures.
+
+ver131:
+bug fixes, deleted like 200-300 lines of code and now testing how it work. changing all messages to json and use it also in main program and database. json is a good format.
+report:
+building the calendar view. Its difficult to get values from calendar vicelly. (not tested)
+- fixed also broadlink wlan plug controlling file.
+
+plan:
+edit scroll.py to get custom date
+edit search_database.py also custom search script
+edit also calendar given datetime to right format.
+figure out why calendar page wont show selected date
+figure out how to change scroll.py function call, because you have to give there also start, and end date. list perhaps??
+change calendar size also, its now too small
+change scroll.py,and sesrch_database.py
+
+make also mgtt messagefunction what takes a shutdown command from table project.
+make also mgtt message function what tells to weatherstation to updatethe linux
+
+i make a calendar view changes toscroll.py, search_database.py (not tested)
+not working if you dont format datetime correct format. (YYYY-MM-DD HH:MM:SS.ffffff)(changed, not tested)
+bug:
+database search wont work based datetime search(lets fix this later. old tables are wrong)
+
+ver132:
+Added lux sensors to kitchen and livingroom outside. 
+
+Plan: i have to delete all hedgehogs code and build up the database table again. 
+
+Also i have to make a time rule what checks if the esp
+
+boards is offlne, then it will reset those again(fixed ver 133). 
+
+Then i have to make a columns for the lux value(fixed ver 133).
+
+Then get icon from forecast api, not locally. saves a lots lines of code.
+
+Find out how to calculate lux value from ADC pin.
+
+Fix all database code when you update the database tables to better mode.
+
+Then make up that calendar view what doesnt work that old model database.
+
+Fix the main program labels so you can only update the view in graphics without deleting it.
+
+test database first how new table works and after that delete all old table code from database and edit dbsearch code also.
+
+ver133:
+report:
+i make the timerule what reboot esb devices if timestamp is too old.
+I make the new table to database where device can save all sensors at the same time.
+I start to plan mysqk script how to save all devices data to table. 
+I update the database file and i test new table first and then i will remove old not
+nessecery codes. i think i have to delete like 70 lines of code affter this update.(not tested yet)
+
+ver134:
+Report:
+Now connections.py is an orginal state. Error handling is not wice to build there. I also edit
+forecast.py to get icon code from weatherapi. I also gonna build up the reseting error handling
+on weatherstation.py file. Using the devices make timestamp.
+Now the bigger changes on this version is done. Lets test how it work and if good result. we can deletre
+about 200 lines of code
+
+testing report:
+database is now working with new one table. Also weather api icons are working now. I can delete the old if statements and stuff.
+also reset esp boards is working now. 
+
+bug weather icons are quite big but i have to adjust them.
+
+report: version 134 is working good. I resize the images and also database is working. microkontrollers reseting have some issues
+but i think the connections.py is shutdown so that why my main program reseted the microcontrollers if them timestamp is too old.
+
+
+version 135.
+plan. i delete like a 150 lines of code and  few files and after that i change the label updates to stringvar. Then mainloop only
+updates the label strigvar variable so i dont have to destroy them anymore. in this version i have to start planning the database
+search how to do it. tables are now same in all sensors.
+
+Report: deleted all database insert codes from connections.
+deleted codes to old database tables from database.py.
+deleted old weathericons.
+deleted also from weatherstation.py all weather based icons and if clauses. 
+i move the labels from loop to start and i am trying to use stringvar to update the labels. 
+
+tested and its working fine!
+
+version 136.
+
+Deleted a hedgehogs room temp. Bedroom needed only. 
+i also modified the average counting to new database table.
+i modified the searchdatabase to new database table.
+edited also database.py file how it counts average values from new table.
+edited hedgehogmqtt,py because temperature and humidity not needed anymore
+edited scroll.py to new database table.
+edited the weatherstation.py file to new average view. Also named the labels clearly.
+
+test:
+what value is going to graphics.py
+
+bug:
+calnendar view has problen the datetime value. 
+graphics.py there is going wrong datetime value
+
+fixed. Graphical view works now fine.
+datetime error fixed on calendar view
+still mariadb doesnt like that between command. i have to figure out why.
+
+version 137
+calendar choice is now working. I have to define datetime objects to global or in class. In this case global
+was better. I know that is not recommend to use global variables but in tkinter there is only two options.
+
+Bug: Sometimes the wlan devices controlling gives indexerror and timeout error. I have to do try, except clause there.
+Autostart didn't work. I try to give permission to files. 
+
+
+version 138
+
+adding the esp resets. it now reset one of devices only, not all what it does on older versions. Also testing new
+code to reset connections.py program. Make also some bug fixes.

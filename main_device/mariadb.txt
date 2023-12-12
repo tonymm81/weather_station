@@ -1,0 +1,21 @@
+here is some mariadb setups
+
+sudo systemctl start mariadb
+sudo systemctl enable mariadb
+sudo systemctl status mariadb
+
+MariaDB [weatherstation]> CREATE TABLE esp2_in ( id int not null primary key auto_increment, temp_in double, hum_in double, timestamp datetime ) engine=Innodb default charset=latin1;
+MariaDB [weatherstation]> CREATE TABLE esp2_out ( id int not null primary key auto_increment, temp_out double, hum_out double, timestamp datetime ) engine=Innodb default charset=latin1;
+MariaDB [weatherstation]> CREATE TABLE esp1_in ( id int not null primary key auto_increment, temp_in double, hum_in double, timestamp datetime ) engine=Innodb default charset=latin1;
+MariaDB [weatherstation]> CREATE TABLE esp1_out ( id int not null primary key auto_increment, temp_out double, hum_out double, timestamp datetime ) engine=Innodb default charset=latin1;
+MariaDB [weatherstation]> CREATE TABLE esp3_in ( id int not null primary key auto_increment, temp double, hum double, timestamp datetime ) engine=Innodb default charset=latin1;
+CREATE TABLE hedgeroom ( id int not null primary key auto_increment, temp double, hum double, timestamp datetime ) engine=Innodb default charset=latin1;
+CREATE TABLE siili ( id int not null primary key auto_increment,juoksut int,  timestamp datetime ) engine=Innodb default charset=latin1;
+# comment # double was wrong choice. decimal is correct because that saves also - marks numbers.
+ALTER TABLE esp1_out MODIFY COLUMN temp_out DECIMAL(10,2); # this command fix outside temp problem
+ALTER TABLE esp2_out MODIFY COLUMN temp_out DECIMAL(10,2); # this command fix outside temp problem
+
+new version table ver132
+create table all_sensors(time_id datetime, temperature_living_in float, humidity_living_in float, temperature_living_out float, humidity_living_out float,
+    -> lux_value_livingroom float, temperature_kitchen_in float, humidity_kitchen_in float, temperature_kitchen_out float, humidity_kitchen_out float, lux_value_kitchen float,
+    -> bedroom_temperature float, bedroom_humidity float);

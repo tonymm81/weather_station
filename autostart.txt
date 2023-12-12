@@ -1,0 +1,7 @@
+here is what you need to get program started automaticly:
+
+sudo nano /etc/xdg/lxsession/LXDE-pi/autostart
+
+@/usr/bin/python3 /home/pi/Desktop/new/new_weatherstation/main_device/connections.py &
+@/usr/bin/python3 /home/pi/Desktop/new/new_weatherstation/main_device/hedgehogmqtt.py &
+@/usr/bin/python3 /home/pi/Desktop/new/new_weatherstation/main_device/weatherstation.py &
