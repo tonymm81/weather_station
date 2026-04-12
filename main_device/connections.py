@@ -5,8 +5,48 @@ import time
 import pickle
 import json
 from shutdown import *
+import logging
+from logging.handlers import RotatingFileHandler
+import os
+import threading
 
+LOGDIR = '/var/log/weather_station' # logging added in version 139
+os.makedirs(LOGDIR, exist_ok=True)
+SHUTDOWN_TOPIC = 'weather_station/mydevice/control'
 
+# --- Korjattu formatteri, joka lisää component-kentän automaattisesti ---
+class ComponentFormatter(logging.Formatter):
+    def format(self, record):
+        if not hasattr(record, "component"):
+            record.component = record.name  # fallback, estää KeyErrorin
+        return super().format(record)
+
+def make_logger(name, path, level=logging.INFO):
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+
+    if not logger.handlers:
+        handler = RotatingFileHandler(path, maxBytes=5*1024*1024, backupCount=5)
+
+        fmt = '%(asctime)s %(levelname)s %(name)s %(component)s: %(message)s'
+        formatter = ComponentFormatter(fmt)
+
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+
+    return logger
+
+# luodaan logger, käytä pienaakkosia tiedostonimissä
+connections_logger = make_logger(
+    'weather.sensor',
+    os.path.join(LOGDIR, 'sensor.log'),
+    level=logging.INFO
+)
+
+connections_logger.info('Sensor started', extra={'component': 'sensor'})
+
+# turvallinen pickle-esimerkki (absoluuttinen polku)
+#os.makedirs(os.path.dirname(PICKLE_PATH), exist_ok=True)
 save_values_to_database = time.time()
 timestartup = dt.datetime.now()
 timestartup = timestartup.strftime("%y-%m-%d %H:%M:%S")
@@ -20,14 +60,16 @@ esp_json_message = {"kitchen_indoor_temp": 0.0, "kitchen_indoor_humidity": 0.0, 
 
 
 def on_connect(client, userdata, flags, rc):
-    print('Connected with result code {0}'.format(rc))
-    connect = rc
-    pickle.dump( connect, open( "connect.p", "wb" ) )
-    client.subscribe('temp_humidity_from_livingroom') 
-    client.subscribe('temp_humidity_from_kitchen')
-    client.subscribe('temp_humidity_bedroom')
-    return client, userdata
-
+    try: # logging added in version 139
+        print('Connected with result code {0}'.format(rc))
+        connect = rc
+        pickle.dump( connect, open( "connect.p", "wb" ) )
+        client.subscribe('temp_humidity_from_livingroom')
+        client.subscribe('temp_humidity_from_kitchen')
+        client.subscribe('temp_humidity_bedroom')
+        return client, userdata
+    except Exception as e:
+        connections_logger.exception("Cannot setup the connection to mqtt: %s", e)
 
 def timeflag(): # time rule function
     t_flag = time.time()
@@ -99,16 +141,60 @@ def sendmessage():
     
     
 def check_devices_and_send_database(): # this will reboot devices if timestamp is too old. and if everything okay lets put values to the database
-    global save_values_to_database
-    checking = time.time()
+    try: # logging added in version 139
+        global save_values_to_database
+        checking = time.time()
+        
+        if checking - save_values_to_database >= 3600:#00
+            save_sensors_value(esp_json_message)
+            save_values_to_database = time.time()
+            print("trying to save values to db")
     
-    if checking - save_values_to_database >= 3600:#00
-        save_sensors_value(esp_json_message)
-        save_values_to_database = time.time()
-        print("trying to save values to db")
+    except Exception as e:
+        connections_logger.exception("Cannot connect to database: %s", e)
     
-    
- 
+def _start_shutdown_thread():#added shutdown in version 139
+    """
+    Käynnistää shutdown.plug_off() erillisessä daemon-säikeessä.
+    plug_off() sisältää Broadlink-sammutuksen ja lopulta shutdown-komennon.
+    """
+    def worker():
+        try:
+            connections_logger.info("Shutdown thread: aloitetaan plug_off-sekvenssi")
+            shutdown.plug_off()
+        except Exception:
+            connections_logger.exception("Shutdown thread: virhe plug_off-sekvenssissä")
+    t = threading.Thread(target=worker, daemon=True)
+    t.start()
+
+def on_message_shutdown(client, userdata, msg):#added shutdown in version 139
+    """
+    Odottaa JSON-viestin, esim. {"cmd":"shutdown"}.
+    Ei käytä tokenia koska viestintä on localhost.
+    """
+    try:
+        payload = msg.payload.decode('utf-8', 'ignore')
+        data = json.loads(payload) if payload else {}
+    except Exception:
+        connections_logger.exception("Virhe dekoodattaessa shutdown-viestiä")
+        return
+
+    cmd = data.get('cmd')
+    if cmd != 'shutdown':
+        connections_logger.info("Shutdown-callback: vastaanotettu muu komento: %s", cmd)
+        return
+
+    connections_logger.info("Shutdown-callback: vastaanotettu shutdown-komento, aloitetaan sekvenssi")
+
+    # yritetään sulkea MQTT-yhteys siististi ennen sammuttamista
+    try:
+        client.disconnect()
+        connections_logger.info("MQTT client: disconnect kutsuttu")
+    except Exception:
+        connections_logger.exception("MQTT client: disconnect epäonnistui")
+
+    # käynnistä sammutus erillisessä säikeessä (ei-blocking)
+    _start_shutdown_thread()
  
     
 client = mqtt.Client()
@@ -116,5 +202,6 @@ client.on_connect = on_connect
 client.message_callback_add('temp_humidity_from_livingroom', on_message)
 client.message_callback_add('temp_humidity_from_kitchen', on_message2)
 client.message_callback_add('temp_humidity_bedroom', on_message4)
+client.message_callback_add(SHUTDOWN_TOPIC, on_message_shutdown) #added shutdown in version 139
 client.connect('localhost', 1883, 60)# Connect to MQTT broker (also running on Pi).   
 client.loop_forever() #  Processes MQTT network traffic, callbacks and reconnections. (Blocking)

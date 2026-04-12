@@ -6,6 +6,9 @@ from broadlink import switch
 import cryptography
 import re
 import time
+import logging
+from logging.handlers import RotatingFileHandler
+import os
 #from pswd import broadlink_switch_user
 esp_kitchen_str = ""
 esp_bedroom_str = ""
@@ -15,39 +18,105 @@ esp_livingroom_str = ""
 esp_livingroom_ip = ""
 
 
+
+LOGDIR = '/var/log/weather_station'  # logging added in version 139
+os.makedirs(LOGDIR, exist_ok=True)
+
+# --- Korjattu formatteri, joka lisää component-kentän automaattisesti ---
+class ComponentFormatter(logging.Formatter):
+    def format(self, record):
+        if not hasattr(record, "component"):
+            record.component = record.name  # fallback, estää KeyErrorin
+        return super().format(record)
+
+def make_logger(name, path, level=logging.INFO):
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+
+    if not logger.handlers:
+        handler = RotatingFileHandler(path, maxBytes=5*1024*1024, backupCount=5)
+
+        fmt = '%(asctime)s %(levelname)s %(name)s %(component)s: %(message)s'
+        formatter = ComponentFormatter(fmt)
+
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+
+    return logger
+
+# broadlink-specific logger
+broadlink_logger = make_logger(
+    'weather.broadlink_switch',
+    os.path.join(LOGDIR, 'broadlink_switch.log'),
+    level=logging.INFO
+)
+
+broadlink_logger.info('Broadlink switch logger initialized', extra={'component': 'broadlink_switch'})
+
 def broadlink_switch_control(position, what_device):
     global esp_kitchen_str, esp_bedroom_str, esp_kitchen_ip, esp_bedroom_ip, esp_livingroom_str, esp_livingroom_ip
-    #wlan, pswd = broadlink_switch_user() 
-    #broadlink.setup(wlan, pswd, 3)
-    devices = broadlink.discover(timeout=5, local_ip_address='192.168.68.200')
-    #print(devices)
+
+    try:
+        devices = broadlink.discover(timeout=5, local_ip_address='192.168.68.200')
+        broadlink_logger.info(f"broadlink.discover called, devices={devices}")
+    except Exception:
+        broadlink_logger.exception("broadlink.discover epäonnistui")
+        return
+
+    if not devices:
+        broadlink_logger.warning("Ei löydetty Broadlink-laitteita (devices on tyhjä tai None)")
+        return
+
     try:
         i = len(devices)
-        o = 0
-        
-        for o in range (i):# broadlinkdevice could change a ip address so lets check out the ipaddress with a name and save the ip in value
-            if devices[o].name == "Esp_Kitchen|1":
-                esp_kitchen_str = devices[o]
-                esp_kitchen_str = str(esp_kitchen_str)
-                result = re.findall(r'[\d\.]+', esp_kitchen_str)
-                esp_kitchen_ip = result[5]#this works on sp3-eu plugs and [4] works with sp4-eu
-        
-            if devices[o].name == "Esp_Bedroom|1":
-                esp_bedroom_str = devices[o]
-                esp_bedroom_str = str(esp_bedroom_str)
-                result1 = re.findall(r'[\d\.]+', esp_bedroom_str)
-                esp_bedroom_ip = result1[5]#this works on sp3-eu plugs and [4] works with sp4-eu
-                
-            if devices[o].name == "Esp_livingroom|1":
-                esp_livingroom_str = devices[o]
-                esp_livingroom_str = str(esp_livingroom_str)
-                result2 = re.findall(r'[\d\.]+', esp_livingroom_str)
-                esp_livingroom_ip = result2[5]#this works on sp3-eu plugs and [4] works with sp4-eu
-                print(esp_livingroom_ip)
-            o = + 1
-            
-    except IndexError: #when the devices is somehow offline and the result is false lets continue the program
+        broadlink_logger.info(f"Löytyi {i} Broadlink-laitetta")
+
+        for o in range(i):
+            try:
+                dev = devices[o]
+                dev_name = getattr(dev, 'name', None)
+                broadlink_logger.debug(f"Tarkastellaan laitetta index={o} name={dev_name} repr={dev!r}")
+            except Exception:
+                broadlink_logger.exception(f"Virhe laitetta haettaessa indexillä {o}")
+                continue
+
+            # --- KITCHEN ---
+            if dev_name == "Esp_Kitchen|7":
+                esp_kitchen_str = str(dev)
+                try:
+                    result = re.findall(r'[\d\.]+', esp_kitchen_str)
+                    esp_kitchen_ip = result[5]
+                    broadlink_logger.info(f"Esp_Kitchen löydetty, ip={esp_kitchen_ip}")
+                except Exception:
+                    broadlink_logger.exception(f"Esp_Kitchen: IP-extract epäonnistui, repr={esp_kitchen_str}")
+
+            # --- BEDROOM ---
+            if dev_name == "Esp_Bedroom|7":
+                esp_bedroom_str = str(dev)
+                try:
+                    result1 = re.findall(r'[\d\.]+', esp_bedroom_str)
+                    esp_bedroom_ip = result1[5]
+                    broadlink_logger.info(f"Esp_Bedroom löydetty, ip={esp_bedroom_ip}")
+                except Exception:
+                    broadlink_logger.exception(f"Esp_Bedroom: IP-extract epäonnistui, repr={esp_bedroom_str}")
+
+            # --- LIVINGROOM ---
+            if dev_name == "Esp_livingroom|7":
+                esp_livingroom_str = str(dev)
+                try:
+                    result2 = re.findall(r'[\d\.]+', esp_livingroom_str)
+                    esp_livingroom_ip = result2[5]
+                    broadlink_logger.info(f"Esp_livingroom löydetty, ip={esp_livingroom_ip}")
+                except Exception:
+                    broadlink_logger.exception(f"Esp_livingroom: IP-extract epäonnistui, repr={esp_livingroom_str}")
+
+    except IndexError:
+        broadlink_logger.exception("IndexError Broadlink-laitteiden käsittelyssä")
         return
+    except Exception:
+        broadlink_logger.exception("Tuntematon virhe Broadlink-laitteiden käsittelyssä")
+        return
+
     
     
     devices_kitchen = broadlink.discover(timeout=5, discover_ip_address=esp_kitchen_ip) 
