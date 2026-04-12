@@ -294,8 +294,6 @@ screen5 = StringVar("")
 screen6 = StringVar("")
 welcome = StringVar("")
 #screen1,screen2, screen3, screen4, screen5, screen6.set("")
-FONT_MAIN = ("helvetica", 11)
-FONT_SMALL = ("helvetica", 10)
 
 livingroom_in = Label(root, textvariable= screen1 , font=("helvetica", 12), fg="white", bg="black")
 livingroom_in.grid(row=2, column=1)

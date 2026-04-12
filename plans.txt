@@ -432,3 +432,9 @@ version 138
 
 adding the esp resets. it now reset one of devices only, not all what it does on older versions. Also testing new
 code to reset connections.py program. Make also some bug fixes.
+
+version 139
+
+Lets wake up this old project. I change the hardware side a littlebit. Rasbin is no longer in mirror. I change it in 8 inch  display. I have to also adjust the graphics.
+Some times WS is failing during the longer uptime so I have to add the error handling and logging to program to see, what is failing and why.
+I have to also update the graphics, besause UI is now litlebit messy.
