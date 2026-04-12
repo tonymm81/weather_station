@@ -438,6 +438,7 @@ version 139
 Lets wake up this old project. I change the hardware side a littlebit. Rasbin is no longer in mirror. I change it in 8 inch  display. I have to also adjust the graphics.
 Some times WS is failing during the longer uptime so I have to add the error handling and logging to program to see, what is failing and why.
 I have to also update the graphics, besause UI is now litlebit messy.
+
 Start via ssh with command DISPLAY=:0 python3 weatherstation.py or
 nohup env DISPLAY=:0 XAUTHORITY=/home/pi/.Xauthority \
   /usr/bin/python3 /home/pi/Desktop/new/new_weatherstation/main_device/connections.py \
@@ -454,3 +455,12 @@ shutdown is not easy to develope, because I have to some how wait, that weathers
 and after that we can shutdown the table project.
 
 Now the program has new ui layout and it has also logging in broadlink_switch and weatherstation and connection.py files.
+
+single-bed.png
+living-room.png
+cloudy.png
+icons8-average-64.png
+icons8-kitchen-50.png
+added, that ui would look better. Earlier there was only bold text and no icons
+I should add the lamp icon to lux label.
+Labels should start on thefert. Now those are not in first column

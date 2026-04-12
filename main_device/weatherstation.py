@@ -458,6 +458,58 @@ for i, r in enumerate([20,22,24,26,28]):
     fl.grid(row=r, column=1, sticky="w", padx=8, pady=2)
     forecast_labels.append(fl)
 
+#testing icons version 139
+ICON_DIR = "/home/pi/Desktop/new/new_weatherstation/main_device/icons"
+
+# apufunktio kuvan lataukseen ja koonmuutokseen
+def load_icon(name, size=(24,24)):
+    path = os.path.join(ICON_DIR, name)
+    try:
+        img = Image.open(path).convert("RGBA")
+        img = img.resize(size, Image.LANCZOS)
+        return ImageTk.PhotoImage(img)
+    except Exception:
+        logging.exception("Failed to load icon %s", path)
+        return None
+
+icons = {
+    "living": load_icon("living-room.png", (20,20)),
+    "kitchen": load_icon("icons8-kitchen-50.png", (20,20)),
+    "avg": load_icon("icons8-average-64.png", (18,18)),
+    "welcome": load_icon("cloudy.png", (20,20)),
+    "bedroom": load_icon("single-bed.png", (20,20))
+}
+# lataa ikonit kerran (nimiä muokkaa tarpeen mukaan)
+if icons.get("living"):
+    livingroom_in.config(image=icons["living"], compound="left", padx=6)
+    livingroom_in.image = icons["living"]
+
+# Jos haluat myös livingroom_out erikseen kuvalla:
+if icons.get("living"):
+    livingroom_out.config(image=icons["living"], compound="left", padx=6)
+    livingroom_out.image = icons["living"]
+
+if icons.get("kitchen"):
+    kitchen_in.config(image=icons["kitchen"], compound="left", padx=6)
+    kitchen_in.image = icons["kitchen"]
+    kitchen_out.config(image=icons["kitchen"], compound="left", padx=6)
+    kitchen_out.image = icons["kitchen"]
+
+if icons.get("bedroom"):
+    bedroom.config(image=icons["bedroom"], compound="left", padx=6)
+    bedroom.image = icons["bedroom"]
+
+if icons.get("avg"):
+    avg_label_living.config(image=icons["avg"], compound="left", padx=6)
+    avg_label_living.image = icons["avg"]
+    avg_label_kitchen.config(image=icons["avg"], compound="left", padx=6)
+    avg_label_kitchen.image = icons["avg"]
+
+if icons.get("welcome"):
+    welcome_label.config(image=icons["welcome"], compound="left", padx=6)
+    welcome_label.image = icons["welcome"]
+
+#testing icons end in version 139
 
 
 
