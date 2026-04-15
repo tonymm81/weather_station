@@ -32,6 +32,49 @@ LOGDIR = '/var/log/weather_station'
 SetupGpio = False
 os.makedirs(LOGDIR, exist_ok=True)
 
+# label variables in version 139
+ROW_PADX = 8
+ROW_PADY = 2
+FRAME_BD = 1
+FRAME_RELIEF = "groove"
+ICON_PADX = 6
+
+power_on = 1
+device1_time = time.time() # this are the time rule global time what we update when the time rule is true
+connected_time = time.time()
+answ = 0
+avg_time = time.time()
+forecast_time = time.time()
+esp1_message = {}
+resetrule = time.time()
+reseted = False
+
+
+
+def create_row(parent, row, title=None, icon_photo=None, textvariable=None, text="", wraplength=600):# label function in version 139
+    # Voit käyttää LabelFrame jos haluat otsikon: LabelFrame(parent, text=title, ...)
+    frame = Frame(parent, bg="black", bd=FRAME_BD, relief=FRAME_RELIEF)
+    frame.grid(row=row, column=1, sticky="w", padx=ROW_PADX, pady=ROW_PADY)
+
+    # ikonille oma sarake 0 sisällä framessa
+    icon_lbl = Label(frame, bg="black")
+    icon_lbl.grid(row=0, column=0, sticky="w", padx=(0, ICON_PADX))
+
+    # tekstille sarake 1
+    txt_lbl = Label(frame, textvariable=textvariable, text=text,
+                    font=("Helvetica", 12), fg="white", bg="black",
+                    anchor="w", justify="left", wraplength=wraplength)
+    txt_lbl.grid(row=0, column=1, sticky="w")
+
+    # aseta kuva jos annettu ja tallenna viite
+    if icon_photo:
+        icon_lbl.config(image=icon_photo)
+        icon_lbl.image = icon_photo
+
+    return frame, icon_lbl, txt_lbl
+
+
+
 def thread_wrapper(fn, *args, **kwargs): #added in version 139
     """Käynnistä fn säikeessä ja loggaa poikkeukset."""
     def run():
@@ -77,15 +120,6 @@ weather_logger = make_logger(
 )
 
 weather_logger.info('Weatherstation logger initialized', extra={'component': 'weatherstation'})
-
-power_on = 1
-device1_time = time.time() # this are the time rule global time what we update when the time rule is true
-connected_time = time.time()
-answ = 0
-avg_time = time.time()
-forecast_time = time.time()
-esp1_message = {}
-
 
 
 def get_message1():
@@ -148,17 +182,17 @@ def update_ui():
     global answ
     global _update_running
     global SetupGpio
+    global resetrule
+    global reseted
     if _update_running:
         root.after(UPDATE_INTERVAL_MS, update_ui)
         return
     _update_running = True
-    reseted = False
+   
     if SetupGpio == False:
         gpio_pins()
         SetupGpio = True
-    get_message1()
-    resetrule = time.time()
-    
+ 
     timenow = timeflag()
     if timenow - connected_time > 15:
         answ = get_message_4()
@@ -323,10 +357,10 @@ def getIconUrl(code):
     return image1
        
 
-def ask_forecast(): # modified in version 139
+def ask_forecast():
     try:
         Forecast = fore_cast()  # oletetaan että tämä palauttaa listan kuten ennen
-        icons = [Forecast[3], Forecast[7], Forecast[11], Forecast[15], Forecast[19]]
+        icons_codes = [Forecast[3], Forecast[7], Forecast[11], Forecast[15], Forecast[19]]
         texts = [
             f"next 5 day forecast is: {Forecast[0]} {Forecast[1]}c. Time: {Forecast[2]}",
             f"{Forecast[4]} {Forecast[5]}c. Time: {Forecast[6]}",
@@ -336,18 +370,35 @@ def ask_forecast(): # modified in version 139
         ]
     except Exception:
         # jos fore_cast epäonnistuu, älä riko UI:ta
+        logging.exception("ask_forecast: fore_cast failed")
         return
 
-    for i, code in enumerate(icons):
-        try:
-            img = Image.open(f'/home/pi/Desktop/new/new_weatherstation/main_device/icons/{code}.png').resize((24,24))
-            photo = ImageTk.PhotoImage(img)
-            icon_labels[i].config(image=photo)
-            icon_labels[i].image = photo   # tallenna viite estääksesi GC:n
-        except Exception:
-            icon_labels[i].config(image='')  # placeholder tai tyhjä
+    # varmista että icon_labels ja forecast_labels on luotu ja ovat oikean pituiset
+    if len(icon_labels) < 5 or len(forecast_labels) < 5:
+        logging.error("ask_forecast: icon_labels/forecast_labels not initialized or wrong length")
+        return
 
-        forecast_labels[i].config(text=texts[i])
+    for i, code in enumerate(icons_codes):
+        filename = f"{code}.png" if code else None
+        try:
+            # käytä get_cached_icon jos olet lisännyt cache‑funktion, muuten load_icon suoraan
+            photo = load_icon(filename, size=(18,18)) if 'get_cached_icon' in globals() else load_icon(filename, (18,18))
+            if photo:
+                icon_labels[i].config(image=photo)
+                icon_labels[i].image = photo
+            else:
+                icon_labels[i].config(image='')
+        except Exception:
+            logging.exception("ask_forecast: failed to set icon for %s", filename)
+            try:
+                icon_labels[i].config(image='')
+            except Exception:
+                pass
+
+        try:
+            forecast_labels[i].config(text=texts[i])
+        except Exception:
+            logging.exception("ask_forecast: failed to set forecast text for index %d", i)
     
  
 def shutdownmachine(inputpin):
@@ -392,7 +443,19 @@ def gpio_pins():
 root = Tk()
 os.environ["DISPLAY"] = ":0"
 root.title('weather station')
-root.geometry("800x480")
+#root.geometry("800x480")
+root.attributes("-fullscreen", True)
+
+def toggle_fullscreen(event=None):#exit from full screen in version 139
+    is_full = root.attributes("-fullscreen")
+    root.attributes("-fullscreen", not is_full)
+
+def exit_fullscreen(event=None):#exit from full screen in version 139
+    root.attributes("-fullscreen", False)
+
+root.bind("<F11>", toggle_fullscreen)
+root.bind("<Escape>", exit_fullscreen)
+
 root.configure(background="black")
 root.grid_columnconfigure(0, weight=0, minsize=60) # added in version 139
 root.grid_columnconfigure(1, weight=1, minsize=600)
@@ -410,30 +473,17 @@ welcome = StringVar()
 #screen1,screen2, screen3, screen4, screen5, screen6.set("")
 FONT_MAIN = ("helvetica", 11)
 FONT_SMALL = ("helvetica", 10)
+
 # chancing the label variables in version 139
-livingroom_in = Label(root, textvariable=screen1, font=("Helvetica",12), fg="lightcyan", bg="black", anchor="w", justify="left", wraplength=600)
-livingroom_in.grid(row=2, column=1, sticky="w", padx=8, pady=2)
-livingroom_out = Label(root, textvariable=screen2 , font=("helvetica", 12), fg="white", bg="black")
-livingroom_out.grid(row=4, column=1, sticky="w", padx=8, pady=2)
-kitchen_in = Label(root, textvariable=screen3 , font=("helvetica", 12), fg="white", bg="black")
-kitchen_in.grid(row=6, column=1, sticky="w", padx=8, pady=2)
-kitchen_out = Label(root, textvariable= screen4, font=("helvetica", 12), fg="white", bg="black")
-kitchen_out.grid(row=8, column=1, sticky="w", padx=8, pady=2)
-bedroom = Label(root, textvariable= screen5, font=("helvetica", 12), fg="white", bg="black") # remember row
-bedroom.grid(row=10, column=1, sticky="w", padx=8, pady=2)
-lux_values = Label(root, textvariable= screen6  ,  font=("helvetica", 12), fg="white", bg="black")
-lux_values.grid(row=14, column=1, sticky="w", padx=8, pady=2)
-welcome_label = Label(root, textvariable=welcome,  font=("helvetica", 12), fg="green", bg="black")
-welcome_label.grid(row=0, column=1, sticky="w", padx=8, pady=2) #if we have connection, then the text is green
-psu_label = Label(root, textvariable=psu_text, font=("Helvetica",10), fg="lightgrey", bg="black", anchor="w", wraplength=600)
-psu_label.grid(row=40, column=1, sticky="w", padx=8, pady=2)      # added to psu own label
-
-avg_label_living = Label(root, text="", font=("Helvetica", 10), fg="white", bg="black", anchor="w", justify="left", wraplength=600)
-avg_label_living.grid(row=16, column=1, sticky="w", padx=8, pady=2) #moved avg labels here version 139
-
-avg_label_kitchen = Label(root, text="", font=("Helvetica", 10), fg="white", bg="black", anchor="w", justify="left", wraplength=600)
-avg_label_kitchen.grid(row=18, column=1, sticky="w", padx=8, pady=2)
-
+# forecast icons
+icon_labels = [] # modified in version 139
+forecast_labels = []
+forecast_rows = [20, 22, 24, 26, 28]
+for r in forecast_rows:
+    # create_row palauttaa (frame, icon_label, text_label)
+    _, icon_lbl, text_lbl = create_row(root, row=r, icon_photo=None, text="", wraplength=600)
+    icon_labels.append(icon_lbl)
+    forecast_labels.append(text_lbl)
 # here is program buttons 
 btn_frame = Frame(root, bg="black")# modified on version 139
 btn_frame.grid(row=30, column=1, sticky="w", padx=8, pady=2)
@@ -448,20 +498,15 @@ btn6.pack(side="left", padx=6)
 btn8 = Button(btn_frame, text="restart esp boards", fg="white", bg="black", font=("Helvetica", 10), command=reset_esp_boards, width=18)
 btn8.pack(side="left", padx=6)
 
-icon_labels = [] # modified in version 139
-forecast_labels = []
-for i, r in enumerate([20,22,24,26,28]):
-    il = Label(root, bg="black")
-    il.grid(row=r, column=0, padx=4, pady=2)
-    icon_labels.append(il)
-    fl = Label(root, text="", font=("Helvetica",10), fg="white", bg="black", anchor="w", justify="left", wraplength=600)
-    fl.grid(row=r, column=1, sticky="w", padx=8, pady=2)
-    forecast_labels.append(fl)
+btn_shutdown = Button(btn_frame, text="plug off", fg="white", bg="black", font=("Helvetica",10), command=plug_off, width=12)
+btn_shutdown.pack(side="left", padx=6)
+
+
 
 #testing icons version 139
 ICON_DIR = "/home/pi/Desktop/new/new_weatherstation/main_device/icons"
 
-# apufunktio kuvan lataukseen ja koonmuutokseen
+# modified in version 139
 def load_icon(name, size=(24,24)):
     path = os.path.join(ICON_DIR, name)
     try:
@@ -477,42 +522,24 @@ icons = {
     "kitchen": load_icon("icons8-kitchen-50.png", (20,20)),
     "avg": load_icon("icons8-average-64.png", (18,18)),
     "welcome": load_icon("cloudy.png", (20,20)),
-    "bedroom": load_icon("single-bed.png", (20,20))
+    "bedroom": load_icon("single-bed.png", (20,20)),
+    "luxValue": load_icon("light-bulb.png", (20, 20))
 }
-# lataa ikonit kerran (nimiä muokkaa tarpeen mukaan)
-if icons.get("living"):
-    livingroom_in.config(image=icons["living"], compound="left", padx=6)
-    livingroom_in.image = icons["living"]
-
-# Jos haluat myös livingroom_out erikseen kuvalla:
-if icons.get("living"):
-    livingroom_out.config(image=icons["living"], compound="left", padx=6)
-    livingroom_out.image = icons["living"]
-
-if icons.get("kitchen"):
-    kitchen_in.config(image=icons["kitchen"], compound="left", padx=6)
-    kitchen_in.image = icons["kitchen"]
-    kitchen_out.config(image=icons["kitchen"], compound="left", padx=6)
-    kitchen_out.image = icons["kitchen"]
-
-if icons.get("bedroom"):
-    bedroom.config(image=icons["bedroom"], compound="left", padx=6)
-    bedroom.image = icons["bedroom"]
-
-if icons.get("avg"):
-    avg_label_living.config(image=icons["avg"], compound="left", padx=6)
-    avg_label_living.image = icons["avg"]
-    avg_label_kitchen.config(image=icons["avg"], compound="left", padx=6)
-    avg_label_kitchen.image = icons["avg"]
-
-if icons.get("welcome"):
-    welcome_label.config(image=icons["welcome"], compound="left", padx=6)
-    welcome_label.image = icons["welcome"]
+# modified in version 139
 
 #testing icons end in version 139
+_, living_icon_label, livingroom_in = create_row(root, row=2, icon_photo=icons["living"], textvariable=screen1, wraplength=600)
+_, living_out_icon, livingroom_out = create_row(root, row=4, icon_photo=icons["living"], textvariable=screen2)
+_, kitchen_icon_label, kitchen_in = create_row(root, row=6, icon_photo=icons["kitchen"], textvariable=screen3)
+_, kitchen_out_icon, kitchen_out = create_row(root, row=8, icon_photo=icons["kitchen"], textvariable=screen4)
+_, bedroom_icon_label, bedroom = create_row(root, row=10, icon_photo=icons["bedroom"], textvariable=screen5)
+_, lux_icon_label, lux_values = create_row(root, row=14, icon_photo=icons.get("luxValue"), textvariable=screen6)
+_, welcome_icon_label, welcome_label = create_row(root, row=0, icon_photo=icons["welcome"], textvariable=welcome)
+# avg‑labelit (ei textvariable tässä esimerkissä)
+_, avg_icon_l, avg_label_living = create_row(root, row=16, icon_photo=icons["avg"], text="")
+_, avg_icon_k, avg_label_kitchen = create_row(root, row=18, icon_photo=icons["avg"], text="")
 
-
-
+get_message1()
 ask_forecast()
 avg_display()
 #gpio_pins()

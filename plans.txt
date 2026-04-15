@@ -439,17 +439,6 @@ Lets wake up this old project. I change the hardware side a littlebit. Rasbin is
 Some times WS is failing during the longer uptime so I have to add the error handling and logging to program to see, what is failing and why.
 I have to also update the graphics, besause UI is now litlebit messy.
 
-Start via ssh with command DISPLAY=:0 python3 weatherstation.py or
-nohup env DISPLAY=:0 XAUTHORITY=/home/pi/.Xauthority \
-  /usr/bin/python3 /home/pi/Desktop/new/new_weatherstation/main_device/connections.py \
-  > /home/pi/Desktop/new/connect.log 2>&1 < /dev/null &
-disown
-
-nohup env DISPLAY=:0 XAUTHORITY=/home/pi/.Xauthority \
-  /usr/bin/python3 /home/pi/Desktop/new/new_weatherstation/main_device/weatherstation.py \
-  > /home/pi/Desktop/new/connect.log 2>&1 < /dev/null &
-disown
-
 I have to add in table_project the function, what shutdown this device via mqtt
 shutdown is not easy to develope, because I have to some how wait, that weatherstation first shutdown the esp broadlink outlets, and then it shutdown itself
 and after that we can shutdown the table project.
@@ -464,3 +453,15 @@ icons8-kitchen-50.png
 added, that ui would look better. Earlier there was only bold text and no icons
 I should add the lamp icon to lux label.
 Labels should start on thefert. Now those are not in first column
+
+Start via ssh with command DISPLAY=:0 python3 weatherstation.py or
+nohup env DISPLAY=:0 XAUTHORITY=/home/pi/.Xauthority \
+  /usr/bin/python3 /home/pi/Desktop/new/new_weatherstation/main_device/connections.py \
+  > /home/pi/Desktop/new/connect.log 2>&1 < /dev/null &
+disown
+
+nohup env DISPLAY=:0 XAUTHORITY=/home/pi/.Xauthority \
+  /usr/bin/python3 /home/pi/Desktop/new/new_weatherstation/main_device/weatherstation.py \
+  > /home/pi/Desktop/new/weatherstation.log 2>&1 < /dev/null &
+disown
+
