@@ -9,11 +9,14 @@ import logging
 from logging.handlers import RotatingFileHandler
 import os
 import threading
+from flask import Flask, request, jsonify
 
 LOGDIR = '/var/log/weather_station' # logging added in version 139
 os.makedirs(LOGDIR, exist_ok=True)
 SHUTDOWN_TOPIC = 'weather_station/mydevice/control'
 
+app = Flask(__name__)#version 140
+connections_logger = logging.getLogger("connections")
 # --- Korjattu formatteri, joka lisää component-kentän automaattisesti ---
 class ComponentFormatter(logging.Formatter):
     def format(self, record):
@@ -152,56 +155,50 @@ def check_devices_and_send_database(): # this will reboot devices if timestamp i
     
     except Exception as e:
         connections_logger.exception("Cannot connect to database: %s", e)
-    
-def _start_shutdown_thread():#added shutdown in version 139
-    """
-    Käynnistää shutdown.plug_off() erillisessä daemon-säikeessä.
-    plug_off() sisältää Broadlink-sammutuksen ja lopulta shutdown-komennon.
-    """
+
+
+
+def _start_shutdown_thread():
     def worker():
         try:
             connections_logger.info("Shutdown thread: aloitetaan plug_off-sekvenssi")
-            shutdown.plug_off()
+            plug_off()   # olemassa oleva funktio hoitaa varsinaisen sammuttamisen
         except Exception:
             connections_logger.exception("Shutdown thread: virhe plug_off-sekvenssissä")
     t = threading.Thread(target=worker, daemon=True)
     t.start()
 
-def on_message_shutdown(client, userdata, msg):#added shutdown in version 139
-    """
-    Odottaa JSON-viestin, esim. {"cmd":"shutdown"}.
-    Ei käytä tokenia koska viestintä on localhost.
-    """
+@app.route("/shutdown", methods=["POST"])
+def http_shutdown():
+    # odotetaan JSONia, mutta ei tehdä monimutkaista validointia
     try:
-        payload = msg.payload.decode('utf-8', 'ignore')
-        data = json.loads(payload) if payload else {}
+        data = request.get_json(silent=True) or {}
     except Exception:
-        connections_logger.exception("Virhe dekoodattaessa shutdown-viestiä")
-        return
+        connections_logger.exception("Virhe lukemassa JSONia")
+        return jsonify({"ok": False, "error": "invalid_json"}), 400
 
-    cmd = data.get('cmd')
-    if cmd != 'shutdown':
-        connections_logger.info("Shutdown-callback: vastaanotettu muu komento: %s", cmd)
-        return
+    if data.get("cmd") != "shutdown":
+        return jsonify({"ok": False, "error": "invalid_cmd"}), 400
 
-    connections_logger.info("Shutdown-callback: vastaanotettu shutdown-komento, aloitetaan sekvenssi")
-
-    # yritetään sulkea MQTT-yhteys siististi ennen sammuttamista
-    try:
-        client.disconnect()
-        connections_logger.info("MQTT client: disconnect kutsuttu")
-    except Exception:
-        connections_logger.exception("MQTT client: disconnect epäonnistui")
-
-    # käynnistä sammutus erillisessä säikeessä (ei-blocking)
+    connections_logger.info("HTTP shutdown: vastaanotettu, käynnistetään sekvenssi")
     _start_shutdown_thread()
- 
+    return jsonify({"ok": True, "message": "shutdown started"}), 202
+
     
-client = mqtt.Client()
-client.on_connect = on_connect
-client.message_callback_add('temp_humidity_from_livingroom', on_message)
-client.message_callback_add('temp_humidity_from_kitchen', on_message2)
-client.message_callback_add('temp_humidity_bedroom', on_message4)
-client.message_callback_add(SHUTDOWN_TOPIC, on_message_shutdown) #added shutdown in version 139
-client.connect('localhost', 1883, 60)# Connect to MQTT broker (also running on Pi).   
-client.loop_forever() #  Processes MQTT network traffic, callbacks and reconnections. (Blocking)
+mqtt_client = mqtt.Client()
+mqtt_client.on_connect = on_connect
+mqtt_client.message_callback_add('temp_humidity_from_livingroom', on_message)
+mqtt_client.message_callback_add('temp_humidity_from_kitchen', on_message2)
+mqtt_client.message_callback_add('temp_humidity_from_bedroom', on_message4)
+mqtt_client.connect('localhost', 1883, 60)
+mqtt_client.loop_start()
+
+def run_shutdown_server():#version 140
+    # kutsu tätä vain paikallisesti, esim. jos käytät pm2: pm2 start connections.py --interpreter python3
+    app.run(host="127.0.0.1", port=5000, debug=False)
+
+
+if __name__ == "__main__":
+    # Jos haluat, voit ajaa Flaskin erillisessä säikeessä, mutta yleensä
+    # loop_start() + app.run() on riittävä ja yksinkertainen.
+    run_shutdown_server()
