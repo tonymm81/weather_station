@@ -195,7 +195,7 @@ mqtt_client.loop_start()
 
 def run_shutdown_server():#version 140
     # kutsu tätä vain paikallisesti, esim. jos käytät pm2: pm2 start connections.py --interpreter python3
-    app.run(host="127.0.0.1", port=5000, debug=False)
+    app.run(host="0.0.0.0", port=5000, debug=False)
 
 
 if __name__ == "__main__":
