@@ -1,0 +1,13 @@
+2026-04-12 12:15:52,098 INFO weather.sensor sensor: Sensor started
+2026-04-12 12:18:30,053 INFO weather.sensor sensor: Sensor started
+2026-04-12 12:23:52,692 INFO weather.sensor sensor: Sensor started
+2026-04-12 12:33:30,367 INFO weather.sensor sensor: Sensor started
+2026-04-12 12:43:11,678 INFO weather.sensor sensor: Sensor started
+2026-04-12 12:43:11,687 ERROR weather.sensor weather.sensor: Cannot setup the connection to mqtt: [Errno 13] Permission denied: '/var/lib/weather_station/connect.p'
+Traceback (most recent call last):
+  File "connections.py", line 67, in on_connect
+    with open(PICKLE_PATH, 'wb') as f:
+PermissionError: [Errno 13] Permission denied: '/var/lib/weather_station/connect.p'
+2026-04-12 12:51:25,856 INFO weather.sensor sensor: Sensor started
+2026-04-12 12:59:59,711 INFO weather.sensor sensor: Sensor started
+2026-04-12 13:00:19,670 INFO weather.sensor sensor: Sensor started

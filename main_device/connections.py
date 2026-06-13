@@ -5,8 +5,48 @@ import time
 import pickle
 import json
 from shutdown import *
+import logging
+from logging.handlers import RotatingFileHandler
+import os
+import threading
 
+LOGDIR = '/var/log/weather_station' # logging added in version 139
+os.makedirs(LOGDIR, exist_ok=True)
+SHUTDOWN_TOPIC = 'weather_station/mydevice/control'
 
+connections_logger = logging.getLogger("connections")
+class ComponentFormatter(logging.Formatter):
+    def format(self, record):
+        if not hasattr(record, "component"):
+            record.component = record.name  
+        return super().format(record)
+
+def make_logger(name, path, level=logging.INFO):
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+
+    if not logger.handlers:
+        handler = RotatingFileHandler(path, maxBytes=5*1024*1024, backupCount=5)
+
+        fmt = '%(asctime)s %(levelname)s %(name)s %(component)s: %(message)s'
+        formatter = ComponentFormatter(fmt)
+
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+
+    return logger
+
+# luodaan logger, käytä pienaakkosia tiedostonimissä
+connections_logger = make_logger(
+    'weather.sensor',
+    os.path.join(LOGDIR, 'sensor.log'),
+    level=logging.INFO
+)
+
+connections_logger.info('Sensor started', extra={'component': 'sensor'})
+
+# turvallinen pickle-esimerkki (absoluuttinen polku)
+#os.makedirs(os.path.dirname(PICKLE_PATH), exist_ok=True)
 save_values_to_database = time.time()
 timestartup = dt.datetime.now()
 timestartup = timestartup.strftime("%y-%m-%d %H:%M:%S")
@@ -20,14 +60,16 @@ esp_json_message = {"kitchen_indoor_temp": 0.0, "kitchen_indoor_humidity": 0.0, 
 
 
 def on_connect(client, userdata, flags, rc):
-    print('Connected with result code {0}'.format(rc))
-    connect = rc
-    pickle.dump( connect, open( "connect.p", "wb" ) )
-    client.subscribe('temp_humidity_from_livingroom') 
-    client.subscribe('temp_humidity_from_kitchen')
-    client.subscribe('temp_humidity_bedroom')
-    return client, userdata
-
+    try: # logging added in version 139
+        print('Connected with result code {0}'.format(rc))
+        connect = rc
+        pickle.dump( connect, open( "connect.p", "wb" ) )
+        client.subscribe('temp_humidity_from_livingroom')
+        client.subscribe('temp_humidity_from_kitchen')
+        client.subscribe('temp_humidity_bedroom')
+        return client, userdata
+    except Exception as e:
+        connections_logger.exception("Cannot setup the connection to mqtt: %s", e)
 
 def timeflag(): # time rule function
     t_flag = time.time()
@@ -99,22 +141,23 @@ def sendmessage():
     
     
 def check_devices_and_send_database(): # this will reboot devices if timestamp is too old. and if everything okay lets put values to the database
-    global save_values_to_database
-    checking = time.time()
+    try: # logging added in version 139
+        global save_values_to_database
+        checking = time.time()
+        
+        if checking - save_values_to_database >= 3600:#00
+            save_sensors_value(esp_json_message)
+            save_values_to_database = time.time()
+            print("trying to save values to db")
     
-    if checking - save_values_to_database >= 3600:#00
-        save_sensors_value(esp_json_message)
-        save_values_to_database = time.time()
-        print("trying to save values to db")
-    
-    
- 
- 
-    
-client = mqtt.Client()
-client.on_connect = on_connect
-client.message_callback_add('temp_humidity_from_livingroom', on_message)
-client.message_callback_add('temp_humidity_from_kitchen', on_message2)
-client.message_callback_add('temp_humidity_bedroom', on_message4)
-client.connect('localhost', 1883, 60)# Connect to MQTT broker (also running on Pi).   
-client.loop_forever() #  Processes MQTT network traffic, callbacks and reconnections. (Blocking)
+    except Exception as e:
+        connections_logger.exception("Cannot connect to database: %s", e)
+
+
+mqtt_client = mqtt.Client()
+mqtt_client.on_connect = on_connect
+mqtt_client.message_callback_add('temp_humidity_from_livingroom', on_message)
+mqtt_client.message_callback_add('temp_humidity_from_kitchen', on_message2)
+mqtt_client.message_callback_add('temp_humidity_bedroom', on_message4)
+mqtt_client.connect('localhost', 1883, 60)
+mqtt_client.loop_forever() 
