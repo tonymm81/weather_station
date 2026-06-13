@@ -19,10 +19,19 @@ I should add the lamp icon to lux label.
 Labels should start on thefert. Now those are not in first column
 
 Start via ssh with command DISPLAY=:0 python3 weatherstation.py or
+
+Debug commands:
+
 nohup env DISPLAY=:0 XAUTHORITY=/home/pi/.Xauthority \
   /usr/bin/python3 /home/pi/Desktop/new/new_weatherstation/main_device/connections.py \
   > /home/pi/Desktop/new/connect.log 2>&1 < /dev/null &
 disown
+
+nohup env DISPLAY=:0 XAUTHORITY=/home/pi/.Xauthority \
+  /usr/bin/python3 /home/pi/Desktop/new/new_weatherstation/main_device/ShutdownServer.py \
+  > /home/pi/Desktop/new/weatherstation.log 2>&1 < /dev/null &
+disown
+
 
 nohup env DISPLAY=:0 XAUTHORITY=/home/pi/.Xauthority \
   /usr/bin/python3 /home/pi/Desktop/new/new_weatherstation/main_device/weatherstation.py \

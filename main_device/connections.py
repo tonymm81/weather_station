@@ -158,6 +158,6 @@ mqtt_client = mqtt.Client()
 mqtt_client.on_connect = on_connect
 mqtt_client.message_callback_add('temp_humidity_from_livingroom', on_message)
 mqtt_client.message_callback_add('temp_humidity_from_kitchen', on_message2)
-mqtt_client.message_callback_add('temp_humidity_from_bedroom', on_message4)
+mqtt_client.message_callback_add('temp_humidity_bedroom', on_message4)
 mqtt_client.connect('localhost', 1883, 60)
 mqtt_client.loop_forever() 
