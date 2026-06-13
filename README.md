@@ -1,5 +1,8 @@
 ## versions
 
+## version 141
+- Connecting the mqtt server and hppt server to same file was a bad idea. When I was testing this feature I noticed, that mqtt broker was stopping to get messages from client quite soon after start so next step is put python server to on service and own file.
+
 ## version 140
 - adding the remote shutdown to this project. After this change, user can shutdow the device fron wlancontroller app from phone. Http request is working on devices terminal so next step is to configure the android app.
 
