@@ -206,25 +206,33 @@ def update_ui():
         answ = str(answ) 
         welcome.set(" welcome to weatherstation and we are not connected and " + answ + "is a error code")
             
-    try: 
-        if reseted ==True: # this should reset esp board if not online
+    try:
+        if reseted == True:
+            did_reset = False
+
             if timenow - time.mktime(dt.datetime.strptime(esp1_message["livingroom_timestamp"],"%y-%m-%d %H:%M:%S").timetuple()) > 180:
                 reset_esp_boards("livingroom")
-                reseted = False
-                resetrule = time.time()
-            elif timenow - time.mktime(dt.datetime.strptime(esp1_message["kitchen_timestamp"],"%y-%m-%d %H:%M:%S").timetuple()) >180:
+                did_reset = True
+            elif timenow - time.mktime(dt.datetime.strptime(esp1_message["kitchen_timestamp"],"%y-%m-%d %H:%M:%S").timetuple()) > 180:
                 reset_esp_boards("kitchen")
-                reseted = False
-                resetrule = time.time()
+                did_reset = True
             elif timenow - time.mktime(dt.datetime.strptime(esp1_message["bedroom_timestamp"],"%y-%m-%d %H:%M:%S").timetuple()) > 180:
                 reset_esp_boards("bedroom")
-                reseted = False
-                resetrule = time.time()
-            if (timenow - time.mktime(dt.datetime.strptime(esp1_message["bedroom_timestamp"],"%y-%m-%d %H:%M:%S").timetuple()) > 480 
-                and timenow - time.mktime(dt.datetime.strptime(esp1_message["kitchen_timestamp"],"%y-%m-%d %H:%M:%S").timetuple()) >480 
-                and timenow - time.mktime(dt.datetime.strptime(esp1_message["livingroom_timestamp"],"%y-%m-%d %H:%M:%S").timetuple()) > 480):
-                reboot_connections() #here we startup the connections.py if its offline
-                reseted = False
+                did_reset = True
+
+            # tää suoritetaan vain jos yksittäistä resettiä EI juuri tehty samalla kierroksella
+            if not did_reset and (
+                timenow - time.mktime(dt.datetime.strptime(esp1_message["bedroom_timestamp"],"%y-%m-%d %H:%M:%S").timetuple()) > 480
+                and timenow - time.mktime(dt.datetime.strptime(esp1_message["kitchen_timestamp"],"%y-%m-%d %H:%M:%S").timetuple()) > 480
+                and timenow - time.mktime(dt.datetime.strptime(esp1_message["livingroom_timestamp"],"%y-%m-%d %H:%M:%S").timetuple()) > 480
+            ):
+                reboot_connections()
+                did_reset = True
+
+            # tarkistus tehty tällä kierroksella, riippumatta lopputuloksesta -> odota seuraavaa 360s-jaksoa
+            reseted = False
+            resetrule = time.time()
+
     except KeyError:
         print("Having errorhandling keyerror")
         weather_logger.exception("Giving the key error from line 153", extra={'component':'weatherstation'})
@@ -239,12 +247,29 @@ def update_ui():
         resetrule = time.time()
     try:
            
-        screen1.set(str(esp1_message["livingroom_timestamp"]) + " temperature living room is " + str(esp1_message["livingroom_indoor_temp"]) + " humidity is "+str(  esp1_message["livingroom_indoor_humidity"]))
-        screen2.set(str(esp1_message["livingroom_timestamp"]) + " temperature living room outside is " + str(esp1_message["livingroom_outside_temp"]) + "  humidity is " + str(esp1_message["livingroom_outside_humidity"]))
-        screen3.set(str(esp1_message["kitchen_timestamp"]) + " temperature in kitchen is " + str(esp1_message["kitchen_indoor_temp"]) + "  humidity is " + str(esp1_message["kitchen_indoor_humidity"]))
-        screen4.set(str(esp1_message["kitchen_timestamp"]) + " temperature in outside kitchen is " + str(esp1_message["kitchen_outdoor_temp"]) + " humidity is " + str(esp1_message["kitchen_outdoor_humidity"]))
-        screen5.set(str(esp1_message["bedroom_timestamp"]) + " temperature in bedroom is " + str(esp1_message["bedroom_temp"]) + " humidity is " + str(esp1_message["bedroom_humidity"]))
-        screen6.set( "Lux value in kitchen is " + str(esp1_message["lux_value_kitchen"])+ " Living room lux value is: " + str(esp1_message["lux_value_livingroom"]))
+        set_row_text(livingroom_in, f'{esp1_message["livingroom_timestamp"]} temperature living room is ',
+             esp1_message["livingroom_indoor_temp"], "°C", " humidity is ",
+             esp1_message["livingroom_indoor_humidity"], "%")   # sisä -> oletusrajat 20/26
+
+        set_row_text(livingroom_out, f'{esp1_message["livingroom_timestamp"]} temperature living room outside is ',
+                    esp1_message["livingroom_outside_temp"], "°C", " humidity is ",
+                    esp1_message["livingroom_outside_humidity"], "%", temp_cold=0, temp_warm=25)
+
+        set_row_text(kitchen_in, f'{esp1_message["kitchen_timestamp"]} temperature in kitchen is ',
+                    esp1_message["kitchen_indoor_temp"], "°C", " humidity is ",
+                    esp1_message["kitchen_indoor_humidity"], "%")   # sisä -> oletusrajat 20/26
+
+        set_row_text(kitchen_out, f'{esp1_message["kitchen_timestamp"]} temperature outside kitchen is ',
+                    esp1_message["kitchen_outdoor_temp"], "°C", " humidity is ",
+                    esp1_message["kitchen_outdoor_humidity"], "%", temp_cold=0, temp_warm=25)
+
+        set_row_text(bedroom, f'{esp1_message["bedroom_timestamp"]} temperature in bedroom is ',
+                    esp1_message["bedroom_temp"], "°C", " humidity is ",
+                    esp1_message["bedroom_humidity"], "%")   # sisä -> oletusrajat 20/26
+
+        screen6.set("Lux value in kitchen is " + str(esp1_message["lux_value_kitchen"])
+                     + "  Living room lux value is: " + str(esp1_message["lux_value_livingroom"]))
+
         root.update()
         if timenow - avg_time > 3600:
             avg_display()
@@ -526,13 +551,69 @@ icons = {
     "luxValue": load_icon("light-bulb.png", (20, 20))
 }
 # modified in version 139
+## changes in version 142 starts here
+def create_colored_row(parent, row, icon_photo=None):
+    frame = Frame(parent, bg="black", bd=FRAME_BD, relief=FRAME_RELIEF)
+    frame.grid(row=row, column=1, sticky="w", padx=ROW_PADX, pady=ROW_PADY)
+
+    icon_lbl = Label(frame, bg="black")
+    icon_lbl.grid(row=0, column=0, sticky="w", padx=(0, ICON_PADX))
+    if icon_photo:
+        icon_lbl.config(image=icon_photo)
+        icon_lbl.image = icon_photo
+
+    txt = Text(frame, height=1, width=68, bg="black", bd=0, highlightthickness=0,
+               font=("Helvetica", 12), wrap="none")
+    txt.grid(row=0, column=1, sticky="w")
+    txt.tag_configure("normal", foreground="white")
+    txt.tag_configure("cold", foreground="#4da6ff")     # sininen: kylmä
+    txt.tag_configure("warm", foreground="#ffa500")     # oranssi: lämmin/kuuma
+    txt.tag_configure("humid_low", foreground="#ffcc66")
+    txt.tag_configure("humid_high", foreground="#66ccff")
+    txt.config(state="disabled")
+    return frame, icon_lbl, txt
+
+
+def temp_tag(value, cold_below=20, warm_above=26):
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return "normal"
+    if v < cold_below:
+        return "cold"
+    if v > warm_above:
+        return "warm"
+    return "normal"
+
+
+def humidity_tag(value, low_below=30, high_above=60):
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return "normal"
+    if v < low_below:
+        return "humid_low"
+    if v > high_above:
+        return "humid_high"
+    return "normal"
+
+
+def set_row_text(text_widget, prefix, temp, temp_suffix, mid_text, hum, hum_suffix="", temp_cold=20, temp_warm=26):
+    text_widget.config(state="normal")
+    text_widget.delete("1.0", "end")
+    text_widget.insert("end", prefix, "normal")
+    text_widget.insert("end", f"{temp}{temp_suffix}", temp_tag(temp, temp_cold, temp_warm))
+    text_widget.insert("end", mid_text, "normal")
+    text_widget.insert("end", f"{hum}{hum_suffix}", humidity_tag(hum))
+    text_widget.config(state="disabled")
+## changes in version 142 ends here
 
 #testing icons end in version 139
-_, living_icon_label, livingroom_in = create_row(root, row=2, icon_photo=icons["living"], textvariable=screen1, wraplength=600)
-_, living_out_icon, livingroom_out = create_row(root, row=4, icon_photo=icons["living"], textvariable=screen2)
-_, kitchen_icon_label, kitchen_in = create_row(root, row=6, icon_photo=icons["kitchen"], textvariable=screen3)
-_, kitchen_out_icon, kitchen_out = create_row(root, row=8, icon_photo=icons["kitchen"], textvariable=screen4)
-_, bedroom_icon_label, bedroom = create_row(root, row=10, icon_photo=icons["bedroom"], textvariable=screen5)
+_, living_icon_label, livingroom_in = create_colored_row(root, row=2, icon_photo=icons["living"])
+_, living_out_icon, livingroom_out = create_colored_row(root, row=4, icon_photo=icons["living"])
+_, kitchen_icon_label, kitchen_in = create_colored_row(root, row=6, icon_photo=icons["kitchen"])
+_, kitchen_out_icon, kitchen_out = create_colored_row(root, row=8, icon_photo=icons["kitchen"])
+_, bedroom_icon_label, bedroom = create_colored_row(root, row=10, icon_photo=icons["bedroom"])
 _, lux_icon_label, lux_values = create_row(root, row=14, icon_photo=icons.get("luxValue"), textvariable=screen6)
 _, welcome_icon_label, welcome_label = create_row(root, row=0, icon_photo=icons["welcome"], textvariable=welcome)
 # avg‑labelit (ei textvariable tässä esimerkissä)

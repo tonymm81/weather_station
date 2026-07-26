@@ -37,35 +37,38 @@ lux_sensor.atten(ADC.ATTN_11DB)
 #station = network.WLAN(network.STA_IF)
 
 
+msg = None  # alustetaan ennen while-looppia
+
 while True:
     try:
-        
-        Living_room_in.measure()   # Poll sensor1
-        temp_in = Living_room_in.temperature()  # lets save the value from sensor
+        Living_room_in.measure()
+        temp_in = Living_room_in.temperature()
         hum_in = Living_room_in.humidity()
-        Living_room_out.measure()   # Poll sensor2
+        Living_room_out.measure()
         temp_out = Living_room_out.temperature()
         hum_out = Living_room_out.humidity()
         lux_analog_value = lux_sensor.read()
         print(temp_out)
-        
-        if (isinstance(temp_in, float) and isinstance(hum_in, float)) or (isinstance(temp_in, int) and isinstance(hum_in, int)): # check if the sensors give proper value
-            
-            if (isinstance(temp_out, float) and isinstance(hum_out, float)) or (isinstance(temp_out, int) and isinstance(hum_out, int)):
-                temp_in = str(temp_in)
-                temp_out = str(temp_out) #convert to string that we can save this info to array
-                hum_in = str(hum_in)
-                hum_out = str(hum_out)
-                message = {"livingroom temperature in": ""+temp_in+"", "livingroom humidity in": ""+hum_in+"",
-                "livingroom temperature out": ""+temp_out+"", "livingroom humidity out": ""+hum_out+"",
-                "lux analog value livingroom": ""+str(lux_analog_value)+""} #lets packup message to json string
-                msg = json.dumps(message)
-                client.publish(TOPIC, msg)  # Publish sensor data to MQTT topic
-                
+
+        valid_in = (isinstance(temp_in, float) and isinstance(hum_in, float)) or (isinstance(temp_in, int) and isinstance(hum_in, int))
+        valid_out = (isinstance(temp_out, float) and isinstance(hum_out, float)) or (isinstance(temp_out, int) and isinstance(hum_out, int))
+
+        if valid_in and valid_out:
+            temp_in = str(temp_in)
+            temp_out = str(temp_out)
+            hum_in = str(hum_in)
+            hum_out = str(hum_out)
+            message = {"livingroom temperature in": temp_in, "livingroom humidity in": hum_in,
+                       "livingroom temperature out": temp_out, "livingroom humidity out": hum_out,
+                       "lux analog value livingroom": str(lux_analog_value)}
+            msg = json.dumps(message)
+            client.publish(TOPIC, msg)
         else:
             print('Invalid sensor readings.')
-            #print( msg)
+
     except OSError:
         print('Failed to read sensor.')
-    print(msg)
+
+    if msg is not None:
+        print(msg)
     sleep(50)

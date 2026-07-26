@@ -51,7 +51,7 @@ save_values_to_database = time.time()
 timestartup = dt.datetime.now()
 timestartup = timestartup.strftime("%y-%m-%d %H:%M:%S")
 esp_json_message = {"kitchen_indoor_temp": 0.0, "kitchen_indoor_humidity": 0.0, "kitchen_outdoor_temp":0.0,"kitchen_outdoor_humidity":0.0,"kitchen_timestamp":timestartup,
-                    "livingroom_indoor_temp":0.0, "livingroom_indoor_temp": 0.0, "livingroom_outside_temp":0.0, "livingroom_outside_humidity":0.0,
+                    "livingroom_indoor_temp":0.0, "livingroom_indoor_humidity": 0.0, "livingroom_outside_temp":0.0, "livingroom_outside_humidity":0.0,
                     "livingroom_timestamp":timestartup,
                     "bedroom_temp":0.0, "bedroom_humidity": 0.0, "bedroom_timestamp": timestartup, "lux_value_kitchen":1.0, "lux_value_livingroom":1.0}
 
@@ -84,56 +84,74 @@ def timestamp(): # this is for database
 
 
 # Callback fires when a published message is received.
-def on_message(client, userdata, msg): #mqtt message from living room
-    temp_lux =1
-    client.on_connect = on_connect
+def on_message(client, userdata, msg):
     timest = timestamp()
-    message = str(msg.payload.decode("utf-8", "ignore")) # here we decode mqtt message back to string
-    message = json.loads(message) # here we change the string back to json object
-    esp_json_message["livingroom_indoor_temp"] = message["livingroom temperature in"] #here we copy json message to one json message what we send to main program
-    esp_json_message["livingroom_indoor_humidity"] = message["livingroom humidity in"]
-    esp_json_message["livingroom_outside_temp"] = message["livingroom temperature out"]
-    esp_json_message["livingroom_outside_humidity"] = message["livingroom humidity out"]
-    temp_lux = int(message["lux analog value livingroom"])
-    if temp_lux==0:
-        temp_lux=100
-    print(temp_lux)
-    esp_json_message["lux_value_livingroom"] = message["lux analog value livingroom"]#((4096 - temp_lux)*10) /temp_lux  
-    esp_json_message["livingroom_timestamp"] = timest 
-    check_devices_and_send_database()
-    sendmessage()#lets check if time rule is full. then we send to main program the message
+    try:
+        message = str(msg.payload.decode("utf-8", "ignore"))
+        message = json.loads(message)
+
+        esp_json_message["livingroom_indoor_temp"] = message["livingroom temperature in"]
+        esp_json_message["livingroom_indoor_humidity"] = message["livingroom humidity in"]
+        esp_json_message["livingroom_outside_temp"] = message["livingroom temperature out"]
+        esp_json_message["livingroom_outside_humidity"] = message["livingroom humidity out"]
+
+        temp_lux = message.get("lux analog value livingroom")
+        if temp_lux is not None:
+            esp_json_message["lux_value_livingroom"] = temp_lux
+
+        esp_json_message["livingroom_timestamp"] = timest
+        check_devices_and_send_database()
+        sendmessage()
+
+    except (ValueError, KeyError) as e:
+        connections_logger.error("Bad message from livingroom: %s | raw: %r", e, msg.payload, extra={'component': 'livingroom'})
+    except Exception as e:
+        connections_logger.exception("Unexpected error handling livingroom message: %s", e, extra={'component': 'livingroom'})
    
 
     
     
-def on_message2(client, userdata, msg2): # message from kitchen esp
-    temp_lux_kitchen = 1
+def on_message2(client, userdata, msg2):
     timest = timestamp()
-    message = str(msg2.payload.decode("utf-8", "ignore")) # here we decode mqtt message back to string
-    message = json.loads(message) # here we change the string back to json object
-    esp_json_message["kitchen_indoor_temp"] = message["kitchen temperature in"]
-    esp_json_message["kitchen_indoor_humidity"] = message["kitchen humidity in"]
-    esp_json_message["kitchen_outdoor_temp"] = message["kitchen temperature out"]
-    esp_json_message["kitchen_outdoor_humidity"] = message["kitchen humidity out"]
-    print(int(message["Lux_value_kitchen_analog"]))
-    
-    if temp_lux_kitchen == 0:
-        temp_lux_kitchen=100
-    temp_lux_kitchen = int(message["Lux_value_kitchen_analog"])
-    esp_json_message["lux_value_kitchen"] = message["Lux_value_kitchen_analog"]#((4096 - temp_lux_kitchen)*10) /temp_lux_kitchen 
-    esp_json_message["kitchen_timestamp"] = timest 
-    sendmessage() #lets check if time rule is full. then we send to main program the message
-    check_devices_and_send_database()
+    try:
+        message = str(msg2.payload.decode("utf-8", "ignore"))
+        message = json.loads(message)
+
+        esp_json_message["kitchen_indoor_temp"] = message["kitchen temperature in"]
+        esp_json_message["kitchen_indoor_humidity"] = message["kitchen humidity in"]
+        esp_json_message["kitchen_outdoor_temp"] = message["kitchen temperature out"]
+        esp_json_message["kitchen_outdoor_humidity"] = message["kitchen humidity out"]
+
+        lux_val = message.get("Lux_value_kitchen_analog")
+        if lux_val is not None:
+            esp_json_message["lux_value_kitchen"] = lux_val
+
+        esp_json_message["kitchen_timestamp"] = timest
+        sendmessage()
+        check_devices_and_send_database()
+
+    except (ValueError, KeyError) as e:
+        connections_logger.error("Bad message from kitchen: %s | raw: %r", e, msg2.payload, extra={'component': 'kitchen'})
+    except Exception as e:
+        connections_logger.exception("Unexpected error handling kitchen message: %s", e, extra={'component': 'kitchen'})
+
         
-def on_message4(client, userdata, msg9):   
-    message = str(msg9.payload.decode("utf-8", "ignore")) # here we decode mqtt message back to string
-    message = json.loads(message) # here we change the string back to json object
+def on_message4(client, userdata, msg9):
     timest = timestamp()
-    esp_json_message["bedroom_temp"] = message["bedroom temperature in"]
-    esp_json_message["bedroom_humidity"] = message["bedroom humidity in"]
-    esp_json_message["bedroom_timestamp"] = timest
-    check_devices_and_send_database()
-    sendmessage()
+    try:
+        message = str(msg9.payload.decode("utf-8", "ignore"))
+        message = json.loads(message)
+
+        esp_json_message["bedroom_temp"] = message["bedroom temperature in"]
+        esp_json_message["bedroom_humidity"] = message["bedroom humidity in"]
+        esp_json_message["bedroom_timestamp"] = timest
+        check_devices_and_send_database()
+        sendmessage()
+
+    except (ValueError, KeyError) as e:
+        connections_logger.error("Bad message from bedroom: %s | raw: %r", e, msg9.payload, extra={'component': 'bedroom'})
+    except Exception as e:
+        connections_logger.exception("Unexpected error handling bedroom message: %s", e, extra={'component': 'bedroom'})
    
 
 def sendmessage():

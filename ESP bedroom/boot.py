@@ -10,8 +10,6 @@ import esp
 esp.osdebug(None)
 
 
-
-
 ssid = ''
 password = ''
 station = network.WLAN(network.STA_IF)
@@ -40,20 +38,19 @@ sensor9 = dht.DHT11(Pin(14))   # DHT-11 on GPIO 15 (input with internal pull-up 
 
 while True:
     try:
-        
-        sensor9.measure()   # Poll sensor1
+        sensor9.measure()
         temp_in = sensor9.temperature()
         hum_in = sensor9.humidity()
         
         if (isinstance(temp_in, float) and isinstance(hum_in, float)) or (isinstance(temp_in, int) and isinstance(hum_in, int)): 
-            message = {"bedroom temperature in": ""+temp_in+"", "bedroom humidity in": ""+hum_in+""} #lets packup message to json string
+            temp_in_str = str(temp_in)
+            hum_in_str = str(hum_in)
+            message = {"bedroom temperature in": temp_in_str, "bedroom humidity in": hum_in_str}
             msg9 = json.dumps(message)
-            client.publish(TOPIC9, msg9)  # Publish sensor data to MQTT topic
-            
+            client.publish(TOPIC9, msg9)
         else:
             print('Invalid sensor readings.')
-          
-            #client.publish(TOPIC, msg, msg1)
+
     except OSError:
         print('Failed to read sensor.')
     sleep(15)

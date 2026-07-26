@@ -1,5 +1,13 @@
 ## versions
 
+## version 142
+
+- Fixing the communication issue from esp32 microcontrollers. All esp microcontrollers are updated with new version boot.py
+
+- Updating the connections.py for error handeling logic.
+
+- Updsating the weatherstation resetin logic. Updatin the ui more nice than it was.
+
 ## version 141
 - Connecting the mqtt server and hppt server to same file was a bad idea. When I was testing this feature I noticed, that mqtt broker was stopping to get messages from client quite soon after start so next step is put python server to on service and own file.
 

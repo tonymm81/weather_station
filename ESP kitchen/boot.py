@@ -35,36 +35,34 @@ lux_sensor.atten(ADC.ATTN_11DB)
 #station = network.WLAN(network.STA_IF)
 
 
+msg2 = None  # alustetaan ennen while-looppia
+
 while True:
     try:
-    
-        kitchen_sensor_in.measure()   # Poll sensor1
-        temp_in = kitchen_sensor_in.temperature() # lets save the value from sensor
+        kitchen_sensor_in.measure()
+        temp_in = kitchen_sensor_in.temperature()
         hum_in = kitchen_sensor_in.humidity()
-        kitchen_sensor_out.measure()   # Poll sensor2
+        kitchen_sensor_out.measure()
         temp_out = kitchen_sensor_out.temperature()
         hum_out = kitchen_sensor_out.humidity()
         lux_analog_value = lux_sensor.read()
-        if (isinstance(temp_in, float) and isinstance(hum_in, float)) or (isinstance(temp_in, int) and isinstance(hum_in, int)): #lets check is the sensor given value proper
-            
-            if (isinstance(temp_out, float) and isinstance(hum_out, float)) or (isinstance(temp_out, int) and isinstance(hum_out, int)):
-                temp_in = str(temp_in) #convert to string that we can save this info to array
-                temp_out = str(temp_out)
-                hum_in = str(hum_in)
-                hum_out = str(hum_out)
-                message = {"kitchen temperature in": ""+temp_in+"", "kitchen humidity in": ""+hum_in+"",
-                "kitchen temperature out": ""+temp_out+"", "kitchen humidity out": ""+hum_out+"",
-                "Lux_value_kitchen_analog": ""+str(lux_analog_value)+""} #lets packup message to json string
-                msg2 = json.dumps(message)
-                client.publish(TOPIC2, msg2) 
-                
-            
+
+        valid_in = (isinstance(temp_in, float) and isinstance(hum_in, float)) or (isinstance(temp_in, int) and isinstance(hum_in, int))
+        valid_out = (isinstance(temp_out, float) and isinstance(hum_out, float)) or (isinstance(temp_out, int) and isinstance(hum_out, int))
+
+        if valid_in and valid_out:
+            message = {"kitchen temperature in": str(temp_in), "kitchen humidity in": str(hum_in),
+                       "kitchen temperature out": str(temp_out), "kitchen humidity out": str(hum_out),
+                       "Lux_value_kitchen_analog": str(lux_analog_value)}
+            msg2 = json.dumps(message)
+            client.publish(TOPIC2, msg2)
         else:
             print('Invalid sensor readings.')
-            
-            
+
     except OSError:
         print('Failed to read sensor.')
-    print(msg2)
-    
+
+    if msg2 is not None:
+        print(msg2)
+
     sleep(50)
